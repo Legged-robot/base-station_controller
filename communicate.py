@@ -88,19 +88,20 @@ def plotxy(x,y,labels = None, title = None):
     # plt.tight_layout()
 
 
-def run_motors(mmc, id, runtime, pdes, vdes, pv_gains = [0.,0.], zero_pos=False, m_check = False, logfile='/tmp/log_controller.txt'):
+def run_motors(mmc, id, runtime, pdes, vdes, pv_gains = [0.,0.], zero_pos=False, m_check = False, loop_dt = 1., logfile='/tmp/log_controller.txt'):
     '''
     mmc     -   Instance of the controller
     id      -   Motor ids                                       [1,m_ids]
-    runtime -   Time intervals                                  [1, ev_count]
+    runtime -   Time intervals                                  [1, ev_count] or [None]
     pdes    -   Desired position for each time interval         [ev_count, m_ids]
     vdes    -   Desired speed for each time interval            [1, m_ids]
     pv_gains-   Position and velocity gains                     [1, 2]
     zero_pos-   Require to zero out positions of the motors
     m_check -   Check the motor current values. If enabled, pdes, vdes, pv_gains are ignored - Motor should not move
+    loop_dt -   When runtime not provided every loop iteration execution will be increased by loop_dt
     logfile -   File for logging 
     '''
-    if not (    len(runtime) == len(pdes) and 
+    if not (    (len(runtime) == len(pdes) or runtime == [None]) and 
                 len(pdes[0]) == len(id) == len(vdes)and
                 len(pv_gains) == 2 and
                 isinstance(id, list) and 
@@ -166,7 +167,7 @@ def run_motors(mmc, id, runtime, pdes, vdes, pv_gains = [0.,0.], zero_pos=False,
                 t.start() # schedule termination    
             else:
                 break
-
+        
         if not m_check:
             x += [loop_count*DT]
             loop_count += 1    # increase counter
@@ -180,9 +181,13 @@ def run_motors(mmc, id, runtime, pdes, vdes, pv_gains = [0.,0.], zero_pos=False,
             
             print("loop")   # Indicate that loop is performed
 
-
-
-        # time.sleep(.01) # Introduce bigger loop time interval
+        if  runtime == [None]: # This mode only active when runtime sequence is not provided
+            ev_count += 1
+            if not (ev_count == len(pdes) or m_check): # When m_check active also dont go through iterations 
+                if not loop_dt == 0: time.sleep(loop_dt) # Introduce bigger loop time interval 
+            else:
+                break
+            
 
     ############ Disabling motors
     for i in range(m_ids):
@@ -193,25 +198,40 @@ def run_motors(mmc, id, runtime, pdes, vdes, pv_gains = [0.,0.], zero_pos=False,
     ############ Ploting data
     if not m_check:
         for i in range(m_ids):
-            plotxy(x, np.array(y[i]), ["Position des","Position actual","Current Phase A","Current Phase B"],'{} Actuator'.format(MOTOR_NAMES[id[i]-1]))
+            plotxy(x, np.array(y[i]), ["Position des","Position actual","Velocity","Current Q Axis"],'{} Actuator'.format(MOTOR_NAMES[id[i]-1]))
         
         plt.show()
 
 
 
-RUNTIMES = [10.,4.,0.5,0.5,0.5,0.5,10.]
+RUNTIMES = [1.,4.,0.5,0.5,0.5,0.5,10.]
+TIME_INDEXES = 47
+pdes_sim = [
+				[0.00, -0.05, -0.10, -0.14, -0.18, -0.21, -0.09, -0.08, -0.10, -0.11, -0.13, -0.15, -0.16, -0.18, -0.19, -0.20, -0.22, -0.23, -0.24, -0.25, -0.26, -0.27, -0.28, -0.28, -0.29, -0.29, -0.30, -0.30, -0.30, -0.30, -0.30, -0.29, -0.29, -0.29, -0.28, -0.27, -0.26, -0.25, -0.24, -0.23, -0.29, -0.29, -0.29, -0.28, -0.27, -0.27, -0.27 ],
+				[0.00, 0.05, 0.09, 0.14, 0.19, 0.23, 0.14, 0.16, 0.16, 0.17, 0.18, 0.18, 0.19, 0.20, 0.20, 0.21, 0.22, 0.22, 0.23, 0.24, 0.24, 0.25, 0.25, 0.26, 0.27, 0.27, 0.28, 0.29, 0.29, 0.30, 0.31, 0.31, 0.32, 0.33, 0.33, 0.34, 0.35, 0.35, 0.36, 0.37, 0.43, 0.42, 0.41, 0.40, 0.39, 0.39, 0.39 ],
+				[0.00, 0.11, 0.21, 0.32, 0.42, 0.50, 0.29, 0.30, 0.31, 0.32, 0.33, 0.35, 0.36, 0.37, 0.38, 0.39, 0.40, 0.41, 0.42, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.50, 0.51, 0.52, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.60, 0.61, 0.63, 0.64, 0.65, 0.66, 0.77, 0.76, 0.75, 0.74, 0.73, 0.72, 0.72 ]
+				]
+vdes_sim = [
+				[0.00, -5.43, -4.92, -4.82, -4.26, -2.74, 12.69, 0.94, -1.78, -1.75, -1.71, -1.67, -1.62, -1.57, -1.50, -1.43, -1.36, -1.27, -1.19, -1.09, -1.00, -0.89, -0.79, -0.68, -0.56, -0.45, -0.33, -0.21, -0.09, 0.03, 0.16, 0.28, 0.40, 0.52, 0.64, 0.76, 0.87, 0.99, 1.10, 1.20, -6.42, 0.09, 0.84, 0.65, 0.46, 0.27, 0.05 ],
+				[0.00, 4.90, 4.93, 5.31, 5.26, 4.13, -9.31, 1.21, 0.71, 0.71, 0.70, 0.70, 0.70, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.69, 0.70, 0.70, 0.70, 0.70, 0.69, 0.69, 0.69, 0.69, 0.69, 0.68, 0.68, 6.26, -0.38, -1.39, -1.06, -0.74, -0.43, -0.10 ],
+				[0.00, 11.36, 10.82, 11.11, 10.55, 8.71, -22.04, 1.20, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.18, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 1.17, 12.23, -1.11, -1.65, -1.28, -0.90, -0.54, -0.13 ]
+				]
 
 if __name__ == '__main__':
     SAFE_EXIT = True
     v_des = [0.1, 0.1, 0.1]
-
+    pdes = np.transpose(2*np.array(pdes_sim))   # Increase joint motion for the sake of better visualisation
+    pdes = np.array([-1.,1.,-1.]) * pdes        # Flip joint rotation directions for Hip and Ankle joints
+    pdes = np.append(pdes, pdes[::-1], axis=0)  # Append so it returns to zero after jump
     mmc = mm.MotorModuleController('/dev/ttyACM1')		# Connect to the controller's serial port
 
     if (SAFE_EXIT):
         try:
             # run_motors(mmc, MOTOR_IDS[0:2], RUNTIMES[0:2], pdes=[[0.72, 1.39],[0.,0.]], vdes=[0., 0.], pv_gains=[50.,0.], zero_pos=False, m_check=False)
-            run_motors(mmc, MOTOR_IDS[0:3], RUNTIMES[0:2], pdes=[[0.72, 1.36, -1.1],[0.,0.,0.4]], vdes=[0., 0., 0.], pv_gains=[70.,0.], zero_pos=False, m_check=False)
-            # run_motors(mmc, MOTOR_IDS[0:3], RUNTIMES[0:1], pdes=[[1., 1.26, -1.1]], vdes=[0., 0., 0.], pv_gains=[70.,0.], zero_pos=False, m_check=False)
+            # run_motors(mmc, MOTOR_IDS[0:3], RUNTIMES[0:2], pdes=[[0.72, 1.36, -1.1],[0.,0.,0.4]], vdes=[0., 0., 0.], pv_gains=[70.,0.], zero_pos=False, m_check=False)
+            run_motors(mmc, MOTOR_IDS[0:3], runtime = [None], pdes=pdes, vdes=[0.1, 0.1, 0.1], pv_gains=[5.,1.], loop_dt=0.03, zero_pos=False, m_check=False)
+            # run_motors(mmc, MOTOR_IDS[0:3], RUNTIMES[0:2], pdes=[[0.72, 1.36, -1.1],[0.,0.,0.4]], vdes=[0., 0., 0.], pv_gains=[70.,0.], zero_pos=False, m_check=False)
+            # run_motors(mmc, MOTOR_IDS[0:3], RUNTIMES[0:1], pdes=[[0., 0., 0.]], vdes=[0., 0., 0.], pv_gains=[10.,0.], zero_pos=False, m_check=False)
         except:
             for i in range(len(MOTOR_IDS)): # Disable all motors
                 mmc.disable_motor(MOTOR_IDS[i]) 

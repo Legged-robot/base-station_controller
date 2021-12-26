@@ -43,8 +43,10 @@ class MotorModuleController():
             self.rx_data[2] = unpack('f', b_rx[8:12])	    # Current
             self.rx_data[3] = b_rx[12];					    # ID
 			# print(self.rx_data)
+            return True
         else:
             # self.rx_data = 4*[(0.,)]
+            return False
             print("Unsucessful read")
 
     def enable_motor(self, id):
